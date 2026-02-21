@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pulse — SoundCloud Player</title>
+    <meta name="description"
+        content="Stream music from SoundCloud. Search tracks and artists, browse discographies — all without leaving the app." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <div class="app" id="app">
+
+        <!-- Ambient background -->
+        <div class="bg-art" id="bgArt"></div>
+        <div class="bg-overlay"></div>
+
+        <!-- ══════════════════════════════════════
+         LEFT SIDEBAR — search + results
+    ══════════════════════════════════════ -->
+        <aside class="sidebar" id="sidebar">
+
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon">◉</span>
+                    Pulse
+                </div>
+            </div>
+
+            <!-- Search bar -->
+            <div class="search-wrap">
+                <div class="search-box">
+                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" id="searchInput" class="search-input" placeholder="Search songs or artists…"
+                        autocomplete="off" spellcheck="false" />
+                    <div class="search-spinner" id="searchSpinner"></div>
+                    <button class="search-clear" id="searchClear" title="Clear">✕</button>
+                </div>
+                <!-- Filter tabs -->
+                <div class="search-tabs">
+                    <button class="tab-btn active" id="tabTracks" data-mode="tracks">Tracks</button>
+                    <button class="tab-btn" id="tabArtists" data-mode="artists">Artists</button>
+                </div>
+            </div>
+
+            <!-- Results list -->
+            <div class="results-scroll" id="resultsScroll">
+                <div class="results-list" id="resultsList">
+                    <!-- Populated by JS -->
+                    <div class="empty-hint" id="emptyHint">
+                        <div class="empty-hint-icon">🎵</div>
+                        <p>Search for a track or<br />artist to get started</p>
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- ══════════════════════════════════════
+         MAIN PLAYER
+    ══════════════════════════════════════ -->
+        <main class="player" id="player">
+
+            <!-- Album art + visualizer -->
+            <div class="art-area">
+                <div class="disc-ring"></div>
+                <div class="album-art" id="albumArt">
+                    <div class="art-placeholder" id="artPlaceholder">
+                        <svg viewBox="0 0 80 80" fill="none">
+                            <circle cx="40" cy="40" r="32" stroke="currentColor" stroke-width="1.5" opacity=".25" />
+                            <circle cx="40" cy="40" r="16" stroke="currentColor" stroke-width="1.5" opacity=".4" />
+                            <circle cx="40" cy="40" r="4" fill="currentColor" opacity=".6" />
+                        </svg>
+                    </div>
+                    <img id="artImg" src="" alt="Album art" />
+                </div>
+                <div class="visualizer" id="visualizer">
+                    <div class="vis-bars" id="visBars"></div>
+                </div>
+            </div>
+
+            <!-- Song info -->
+            <div class="song-info">
+                <h1 class="song-title" id="songTitle">Nothing playing</h1>
+                <p class="song-artist">
+                    <button class="artist-link" id="artistLink" title="View artist">—</button>
+                </p>
+            </div>
+
+            <!-- Progress -->
+            <div class="progress-section">
+                <span class="time" id="currentTime">0:00</span>
+                <div class="progress-wrap" id="progressWrap">
+                    <div class="progress-bg"></div>
+                    <div class="progress-fill" id="progressFill"></div>
+                    <div class="progress-thumb" id="progressThumb"></div>
+                </div>
+                <span class="time" id="totalTime">0:00</span>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <button class="ctrl-btn secondary" id="shuffleBtn" title="Shuffle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <polyline points="16 3 21 3 21 8"></polyline>
+                        <line x1="4" y1="20" x2="21" y2="3"></line>
+                        <polyline points="21 16 21 21 16 21"></polyline>
+                        <line x1="15" y1="15" x2="21" y2="21"></line>
+                    </svg>
+                </button>
+                <button class="ctrl-btn" id="prevBtn" title="Previous">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
+                    </svg>
+                </button>
+                <button class="ctrl-btn play-btn" id="playBtn" title="Play / Pause">
+                    <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                    <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                    </svg>
+                </button>
+                <button class="ctrl-btn" id="nextBtn" title="Next">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 18 14.5 12 6 6v12zm10-12v12h2V6h-2z" />
+                    </svg>
+                </button>
+                <button class="ctrl-btn secondary" id="repeatBtn" title="Repeat">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <polyline points="17 1 21 5 17 9"></polyline>
+                        <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                        <polyline points="7 23 3 19 7 15"></polyline>
+                        <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Volume -->
+            <div class="volume-row">
+                <button class="vol-mute" id="muteBtn" title="Mute">
+                    <svg viewBox="0 0 24 24" fill="currentColor" id="volIcon">
+                        <path
+                            d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+                    </svg>
+                </button>
+                <div class="vol-wrap" id="volWrap">
+                    <div class="vol-bg"></div>
+                    <div class="vol-fill" id="volFill" style="width:80%"></div>
+                    <div class="vol-thumb" id="volThumb" style="left:80%"></div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- ══════════════════════════════════════
+         RIGHT PANEL — artist discography
+    ══════════════════════════════════════ -->
+        <aside class="artist-panel" id="artistPanel">
+            <div class="artist-panel-inner">
+
+                <button class="artist-panel-close" id="artistPanelClose" title="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+
+                <!-- Artist profile -->
+                <div class="artist-profile">
+                    <div class="artist-avatar-wrap">
+                        <img class="artist-avatar" id="artistAvatar" src="" alt="Artist" />
+                        <div class="artist-avatar-placeholder" id="artistAvatarPlaceholder">🎤</div>
+                    </div>
+                    <div class="artist-meta">
+                        <h2 class="artist-name" id="artistName">Artist</h2>
+                        <p class="artist-stats" id="artistStats"></p>
+                    </div>
+                </div>
+
+                <!-- Discography -->
+                <div class="discography-header">
+                    <h3>Discography</h3>
+                    <span class="disc-count" id="discCount"></span>
+                </div>
+                <div class="discography-scroll" id="discographyScroll">
+                    <div class="discography-list" id="discographyList">
+                        <!-- populated by JS -->
+                    </div>
+                    <div class="disc-loader" id="discLoader" style="display:none">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+    </div><!-- .app -->
+
+    <!-- Hidden SoundCloud Widget iframe -->
+    <iframe id="scWidget" allow="autoplay"
+        src="https://w.soundcloud.com/player/?url=https%3A//soundcloud.com/soundcloud-developers&auto_play=false&show_artwork=false&visual=false&show_comments=false&hide_related=true&show_user=false&show_reposts=false"
+        style="position:absolute;width:1px;height:1px;top:-9999px;left:-9999px;border:0;"
+        title="SoundCloud Player"></iframe>
+
+    <!-- Toast container -->
+    <div id="toastRoot"></div>
+
+    <!-- SoundCloud Widget API -->
+    <script src="https://w.soundcloud.com/player/api.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
