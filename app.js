@@ -23,7 +23,7 @@
 // ──────────────────────────────────────────
 //  CONFIG
 // ──────────────────────────────────────────
-const CLIENT_ID = 'iZIs9mchVcX5lhVRyQGGAYlNPVldzAoX'; // public read-only key
+const CLIENT_ID = 'CkCiIyf14rHi27fhk7HxhPOzc85okfSJ'; // public read-only key
 
 const SC_API = 'https://api.soundcloud.com';
 const SC_PROXY = 'https://api-v2.soundcloud.com';       // used as fallback hint only
