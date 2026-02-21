@@ -131,22 +131,27 @@ function stopVisualizer() {
 // ──────────────────────────────────────────
 //  SC REST API MODULE
 // ──────────────────────────────────────────
+// SoundCloud's API blocks cross-origin fetch from non-SC domains.
+// We route through corsproxy.io which adds the required CORS headers.
+const CORS_PROXY = 'https://corsproxy.io/?url=';
+
 const SCApi = {
   async get(path, params = {}) {
     params.client_id = CLIENT_ID;
     const qs = new URLSearchParams(params).toString();
-    const url = `${SC_API}${path}?${qs}`;
-    const res = await fetch(url);
+    const scUrl = `${SC_API}${path}?${qs}`;
+    const proxied = CORS_PROXY + encodeURIComponent(scUrl);
+    const res = await fetch(proxied);
     if (!res.ok) throw new Error(`SC API ${res.status}: ${path}`);
     return res.json();
   },
 
   searchTracks(q, limit = 20) {
-    return this.get('/tracks', { q, limit, linked_partitioning: 1 });
+    return this.get('/search/tracks', { q, limit, linked_partitioning: 1 });
   },
 
   searchUsers(q, limit = 20) {
-    return this.get('/users', { q, limit });
+    return this.get('/search/users', { q, limit });
   },
 
   getUserTracks(userId, limit = 50) {
@@ -170,12 +175,15 @@ const SCPlayer = {
 
   init() {
     this.widget = SC.Widget(scWidgetIframe);
+
     this.widget.bind(SC.Widget.Events.READY, () => {
       widgetReady = true;
+      console.log('[Pulse] Widget ready');
       this.widget.setVolume(volume * 100);
       if (pendingPlay) {
-        this.load(pendingPlay, true);
+        const url = pendingPlay;
         pendingPlay = null;
+        this.load(url, true);
       }
     });
 
@@ -183,6 +191,15 @@ const SCPlayer = {
       isPlaying = true;
       PlayerUI.setPlaying(true);
       startVisualizer();
+      // Grab duration once playback actually starts
+      setTimeout(() => {
+        this.widget.getDuration(ms => {
+          if (ms) {
+            trackDuration = ms / 1000;
+            totalTimeEl.textContent = formatTime(trackDuration);
+          }
+        });
+      }, 400);
     });
 
     this.widget.bind(SC.Widget.Events.PAUSE, () => {
@@ -207,8 +224,8 @@ const SCPlayer = {
     });
 
     this.widget.bind(SC.Widget.Events.ERROR, (e) => {
-      console.warn('Widget error', e);
-      showToast('Could not stream this track');
+      console.warn('[Pulse] Widget error', e);
+      showToast('⚠️ Could not stream this track — it may not be publicly streamable');
       PlayerUI.setPlaying(false);
       stopVisualizer();
     });
@@ -219,17 +236,16 @@ const SCPlayer = {
       pendingPlay = trackUrl;
       return;
     }
+    console.log('[Pulse] Loading track:', trackUrl, 'autoPlay:', autoPlay);
+    // widget.load only accepts the URL + options — no callback property
     this.widget.load(trackUrl, {
       auto_play: autoPlay,
-      callback: () => {
-        // After load, fetch duration via getCurrentSound
-        setTimeout(() => {
-          this.widget.getDuration(d => {
-            trackDuration = d / 1000;
-            totalTimeEl.textContent = formatTime(trackDuration);
-          });
-        }, 800);
-      },
+      show_artwork: false,
+      visual: false,
+      hide_related: true,
+      show_comments: false,
+      show_user: false,
+      show_reposts: false,
     });
   },
 
