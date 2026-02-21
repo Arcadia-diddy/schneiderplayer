@@ -374,12 +374,12 @@ const SearchUI = {
   render() {
     resultsList.innerHTML = '';
     if (!this.results.length) {
-      emptyHint.style.display = '';
-      resultsList.appendChild(emptyHint);
-      emptyHint.innerHTML = `<div class="empty-hint-icon">🔍</div><p>No results found</p>`;
+      const eh = document.createElement('div');
+      eh.className = 'empty-hint';
+      eh.innerHTML = `<div class="empty-hint-icon">🔍</div><p>No results found</p>`;
+      resultsList.appendChild(eh);
       return;
     }
-    emptyHint.style.display = 'none';
 
     if (searchMode === 'tracks') {
       const fragment = document.createDocumentFragment();
@@ -484,9 +484,10 @@ const SearchUI = {
 
   showEmpty(msg) {
     resultsList.innerHTML = '';
-    emptyHint.innerHTML = `<div class="empty-hint-icon">🎵</div><p>${msg}</p>`;
-    emptyHint.style.display = '';
-    resultsList.appendChild(emptyHint);
+    const div = document.createElement('div');
+    div.className = 'empty-hint';
+    div.innerHTML = `<div class="empty-hint-icon">🎵</div><p>${msg}</p>`;
+    resultsList.appendChild(div);
   },
 };
 
@@ -765,12 +766,29 @@ document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
   switch (e.code) {
     case 'Space': e.preventDefault(); playBtn.click(); break;
-    case 'ArrowRight': SCPlayer.seekTo(Math.min(1, (progressDrag ? 0 : (trackDuration ? 0 : 0)))); break;
+    case 'ArrowRight':
+      if (trackDuration) {
+        e.preventDefault();
+        const newFrac = Math.min(1, (parseFloat(currentTimeEl.textContent.replace(':', '.')) || 0) / trackDuration + 5 / trackDuration);
+        SCPlayer.seekTo(newFrac);
+        progressFill.style.width = (newFrac * 100) + '%';
+        progressThumb.style.left = (newFrac * 100) + '%';
+      }
+      break;
+    case 'ArrowLeft':
+      if (trackDuration) {
+        e.preventDefault();
+        const newFrac2 = Math.max(0, (parseFloat(currentTimeEl.textContent.replace(':', '.')) || 0) / trackDuration - 5 / trackDuration);
+        SCPlayer.seekTo(newFrac2);
+        progressFill.style.width = (newFrac2 * 100) + '%';
+        progressThumb.style.left = (newFrac2 * 100) + '%';
+      }
+      break;
     case 'KeyN': QueueMgr.playNext(true); break;
     case 'KeyP': QueueMgr.playPrev(); break;
     case 'KeyM': muteBtn.click(); break;
-    case 'ArrowUp': setVolume(Math.min(1, volume + 0.1)); break;
-    case 'ArrowDown': setVolume(Math.max(0, volume - 0.1)); break;
+    case 'ArrowUp': e.preventDefault(); setVolume(Math.min(1, volume + 0.1)); break;
+    case 'ArrowDown': e.preventDefault(); setVolume(Math.max(0, volume - 0.1)); break;
   }
 });
 
@@ -850,6 +868,5 @@ window.addEventListener('load', () => {
 });
 
 // Show initial empty hint
-SearchUI.showEmpty('Search for a track or<br/>artist to get started');
-// Re-attach since showEmpty clears innerHTML
-emptyHint.innerHTML = `<div class="empty-hint-icon">🎵</div><p>Search for a track or<br/>artist to get started</p>`;
+resultsList.innerHTML = '';
+resultsList.appendChild(emptyHint);
