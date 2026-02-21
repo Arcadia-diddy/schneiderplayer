@@ -25,8 +25,7 @@
 // ──────────────────────────────────────────
 const CLIENT_ID = 'CkCiIyf14rHi27fhk7HxhPOzc85okfSJ'; // public read-only key
 
-const SC_API = 'https://api-v2.soundcloud.com';
-const SC_PROXY = 'https://api-v2.soundcloud.com';       // used as fallback hint only
+const SC_API = 'https://api.soundcloud.com';
 
 // ──────────────────────────────────────────
 //  DOM REFS
@@ -131,27 +130,46 @@ function stopVisualizer() {
 // ──────────────────────────────────────────
 //  SC REST API MODULE
 // ──────────────────────────────────────────
-// SoundCloud's API blocks cross-origin fetch from non-SC domains.
-// We route through corsproxy.io which adds the required CORS headers.
-const CORS_PROXY = 'https://corsproxy.io/?url=';
+// Uses JSONP (dynamic <script> injection) to call SoundCloud's v1 API.
+// JSONP bypasses CORS entirely — no proxy needed, works from any domain.
+let _jsonpIdx = 0;
+function jsonp(url) {
+  return new Promise((resolve, reject) => {
+    const cb = '_sc_cb_' + (++_jsonpIdx);
+    window[cb] = (data) => {
+      delete window[cb];
+      document.head.removeChild(script);
+      resolve(data);
+    };
+    const fullUrl = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
+    const script = document.createElement('script');
+    script.src = fullUrl;
+    script.onerror = () => {
+      delete window[cb];
+      document.head.removeChild(script);
+      reject(new Error('JSONP failed: ' + url));
+    };
+    document.head.appendChild(script);
+  });
+}
 
 const SCApi = {
-  async get(path, params = {}) {
+  buildUrl(path, params = {}) {
     params.client_id = CLIENT_ID;
     const qs = new URLSearchParams(params).toString();
-    const scUrl = `${SC_API}${path}?${qs}`;
-    const proxied = CORS_PROXY + encodeURIComponent(scUrl);
-    const res = await fetch(proxied);
-    if (!res.ok) throw new Error(`SC API ${res.status}: ${path}`);
-    return res.json();
+    return `${SC_API}${path}?${qs}`;
+  },
+
+  get(path, params = {}) {
+    return jsonp(this.buildUrl(path, params));
   },
 
   searchTracks(q, limit = 20) {
-    return this.get('/search/tracks', { q, limit, linked_partitioning: 1 });
+    return this.get('/tracks', { q, limit });
   },
 
   searchUsers(q, limit = 20) {
-    return this.get('/search/users', { q, limit });
+    return this.get('/users', { q, limit });
   },
 
   getUserTracks(userId, limit = 50) {
@@ -161,11 +179,8 @@ const SCApi = {
   getUser(userId) {
     return this.get(`/users/${userId}`);
   },
-
-  resolve(url) {
-    return this.get('/resolve', { url });
-  },
 };
+
 
 // ──────────────────────────────────────────
 //  SC WIDGET PLAYER MODULE
