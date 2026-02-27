@@ -1,22 +1,23 @@
 'use strict';
 
-/* ================================
-   AUDIO ENGINE
-================================ */
+/* ===============================
+   CONFIG
+=============================== */
 
-const audio = new Audio();
-audio.crossOrigin = "anonymous";
-audio.volume = 0.8;
+const YT_API_KEY = "AIzaSyBckdlGXY7-mWtwPSETzsTlsNtHENJakAA";
 
+/* ===============================
+   STATE
+=============================== */
+
+let player;
 let queue = [];
 let queueIdx = -1;
-let currentTrack = null;
-let isShuffle = false;
-let repeatMode = 0; // 0 off, 1 all, 2 one
+let isReady = false;
 
-/* ================================
+/* ===============================
    DOM
-================================ */
+=============================== */
 
 const $ = id => document.getElementById(id);
 
@@ -25,48 +26,47 @@ const resultsList = $('resultsList');
 const playBtn = $('playBtn');
 const nextBtn = $('nextBtn');
 const prevBtn = $('prevBtn');
+const songTitle = $('songTitle');
+const artistLink = $('artistLink');
 const progressFill = $('progressFill');
 const progressThumb = $('progressThumb');
 const progressWrap = $('progressWrap');
 const currentTimeEl = $('currentTime');
 const totalTimeEl = $('totalTime');
-const songTitle = $('songTitle');
-const artistLink = $('artistLink');
-const artImg = $('artImg');
-const volWrap = $('volWrap');
-const volFill = $('volFill');
-const volThumb = $('volThumb');
 
-/* ================================
-   AUDIUS API
-================================ */
+/* ===============================
+   YOUTUBE PLAYER INIT
+=============================== */
 
-const Audius = {
-
-  host: null,
-
-  async init() {
-    const res = await fetch("https://api.audius.co");
-    const data = await res.json();
-    this.host = data.data[0];
-  },
-
-  async search(q) {
-    const res = await fetch(
-      `${this.host}/v1/tracks/search?query=${encodeURIComponent(q)}&app_name=PulsePlayer`
-    );
-    const data = await res.json();
-    return data.data || [];
-  },
-
-  streamUrl(trackId) {
-    return `${this.host}/v1/tracks/${trackId}/stream?app_name=PulsePlayer`;
-  }
+window.onYouTubeIframeAPIReady = function () {
+  player = new YT.Player('ytPlayer', {
+    height: '0',
+    width: '0',
+    playerVars: {
+      autoplay: 0,
+      controls: 0,
+      disablekb: 1,
+      modestbranding: 1,
+      rel: 0
+    },
+    events: {
+      onReady: () => {
+        isReady = true;
+      },
+      onStateChange: onPlayerStateChange
+    }
+  });
 };
 
-/* ================================
+function onPlayerStateChange(e) {
+  if (e.data === YT.PlayerState.ENDED) {
+    playNext();
+  }
+}
+
+/* ===============================
    SEARCH
-================================ */
+=============================== */
 
 searchInput.addEventListener("keydown", async e => {
   if (e.key !== "Enter") return;
@@ -74,145 +74,130 @@ searchInput.addEventListener("keydown", async e => {
   const q = searchInput.value.trim();
   if (!q) return;
 
-  const tracks = await Audius.search(q);
-  renderResults(tracks);
+  const res = await fetch(
+    `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=20&q=${encodeURIComponent(q)}&key=${YT_API_KEY}`
+  );
+
+  const data = await res.json();
+  queue = data.items;
+  renderResults(queue);
 });
 
-function renderResults(tracks) {
+function renderResults(videos) {
   resultsList.innerHTML = "";
 
-  tracks.forEach((track, i) => {
+  videos.forEach((vid, i) => {
 
     const div = document.createElement("div");
     div.className = "track-card";
 
     div.innerHTML = `
       <div class="track-thumb">
-        <img src="${track.artwork?.['150x150'] || ''}" />
+        <img src="${vid.snippet.thumbnails.medium.url}" />
       </div>
       <div class="track-card-info">
-        <div class="track-card-title">${track.title}</div>
-        <div class="track-card-artist">${track.user.name}</div>
+        <div class="track-card-title">${vid.snippet.title}</div>
+        <div class="track-card-artist">${vid.snippet.channelTitle}</div>
       </div>
     `;
 
     div.addEventListener("click", () => {
-      queue = tracks;
       queueIdx = i;
-      loadTrack(queue[queueIdx]);
+      loadVideo(queue[queueIdx]);
     });
 
     resultsList.appendChild(div);
   });
 }
 
-/* ================================
-   PLAYER
-================================ */
+/* ===============================
+   PLAYER CONTROL
+=============================== */
 
-function loadTrack(track) {
+function loadVideo(video) {
+  if (!isReady) return;
 
-  currentTrack = track;
+  const videoId = video.id.videoId;
 
-  songTitle.textContent = track.title;
-  artistLink.textContent = track.user.name;
-  artImg.src = track.artwork?.['480x480'] || '';
+  songTitle.textContent = video.snippet.title;
+  artistLink.textContent = video.snippet.channelTitle;
 
-  audio.src = Audius.streamUrl(track.id);
-  audio.play();
+  player.loadVideoById(videoId);
+
+  startProgressUpdater();
 }
 
 playBtn.addEventListener("click", () => {
-  if (!audio.src) return;
-  if (audio.paused) audio.play();
-  else audio.pause();
+  if (!player) return;
+
+  const state = player.getPlayerState();
+
+  if (state === YT.PlayerState.PLAYING) {
+    player.pauseVideo();
+  } else {
+    player.playVideo();
+  }
 });
 
-nextBtn.addEventListener("click", () => playNext(true));
+nextBtn.addEventListener("click", playNext);
 prevBtn.addEventListener("click", playPrev);
 
-function playNext(manual = false) {
-
+function playNext() {
   if (!queue.length) return;
-
-  if (repeatMode === 2 && !manual) {
-    loadTrack(queue[queueIdx]);
-    return;
-  }
-
-  if (isShuffle) {
-    queueIdx = Math.floor(Math.random() * queue.length);
-  } else {
-    queueIdx++;
-    if (queueIdx >= queue.length) {
-      if (repeatMode === 1) queueIdx = 0;
-      else return;
-    }
-  }
-
-  loadTrack(queue[queueIdx]);
+  queueIdx++;
+  if (queueIdx >= queue.length) queueIdx = 0;
+  loadVideo(queue[queueIdx]);
 }
 
 function playPrev() {
   if (!queue.length) return;
   queueIdx--;
   if (queueIdx < 0) queueIdx = queue.length - 1;
-  loadTrack(queue[queueIdx]);
+  loadVideo(queue[queueIdx]);
 }
 
-/* ================================
-   PROGRESS
-================================ */
+/* ===============================
+   PROGRESS BAR
+=============================== */
 
-audio.addEventListener("timeupdate", () => {
+let progressInterval;
 
-  if (!audio.duration) return;
+function startProgressUpdater() {
 
-  const frac = audio.currentTime / audio.duration;
+  clearInterval(progressInterval);
 
-  progressFill.style.width = (frac * 100) + "%";
-  progressThumb.style.left = (frac * 100) + "%";
+  progressInterval = setInterval(() => {
 
-  currentTimeEl.textContent = formatTime(audio.currentTime);
-  totalTimeEl.textContent = formatTime(audio.duration);
-});
+    if (!player || player.getDuration() === 0) return;
 
-audio.addEventListener("ended", () => {
-  playNext();
-});
+    const current = player.getCurrentTime();
+    const duration = player.getDuration();
+    const frac = current / duration;
+
+    progressFill.style.width = (frac * 100) + "%";
+    progressThumb.style.left = (frac * 100) + "%";
+
+    currentTimeEl.textContent = formatTime(current);
+    totalTimeEl.textContent = formatTime(duration);
+
+  }, 500);
+}
 
 progressWrap.addEventListener("click", e => {
+  if (!player) return;
+
   const rect = progressWrap.getBoundingClientRect();
   const frac = (e.clientX - rect.left) / rect.width;
-  audio.currentTime = frac * audio.duration;
+  const seekTo = frac * player.getDuration();
+  player.seekTo(seekTo, true);
 });
 
-/* ================================
-   VOLUME
-================================ */
-
-volWrap.addEventListener("click", e => {
-  const rect = volWrap.getBoundingClientRect();
-  const frac = (e.clientX - rect.left) / rect.width;
-  audio.volume = frac;
-  volFill.style.width = (frac * 100) + "%";
-  volThumb.style.left = (frac * 100) + "%";
-});
-
-/* ================================
+/* ===============================
    HELPERS
-================================ */
+=============================== */
 
 function formatTime(s) {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
   return `${m}:${sec.toString().padStart(2,'0')}`;
 }
-
-/* ================================
-   INIT
-================================ */
-
-(async () => {
-  await Audius.init();
-})();
