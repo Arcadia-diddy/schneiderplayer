@@ -60,7 +60,10 @@ window.onYouTubeIframeAPIReady = function () {
 
 function onPlayerStateChange(e) {
   if (e.data === YT.PlayerState.ENDED) {
-    playNext();
+    if (player) {
+      player.seekTo(0, true);  // go back to start
+      player.playVideo();      // immediately play again
+    }
   }
 }
 
