@@ -60,7 +60,11 @@ window.onYouTubeIframeAPIReady = function () {
 
 function onPlayerStateChange(e) {
   if (e.data === YT.PlayerState.ENDED) {
-    playNext();
+    // 🔁 Repeat same song instead of going next
+    if (player) {
+      player.seekTo(0, true);
+      player.playVideo();
+    }
   }
 }
 
