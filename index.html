@@ -93,7 +93,12 @@
             <div class="song-info">
                 <h1 class="song-title" id="songTitle">Nothing playing</h1>
                 <p class="song-artist">
-                    <button class="artist-link" id="artistLink" title="View artist">—</button>
+                    <button 
+                        class="artist-link" 
+                        id="artistLink" 
+                        title="Search artist on Google"
+                        onclick="if(this.textContent.trim() !== '—'){ window.open('https://www.google.com/search?q=' + encodeURIComponent(this.textContent), '_blank'); }"
+                    </bsutton>
                 </p>
             </div>
 
