@@ -62,7 +62,7 @@ function onPlayerStateChange(e) {
   if (e.data === YT.PlayerState.ENDED) {
     playNext();
   }
-}s
+}
 
 /* ===============================
    SEARCH
